@@ -1,0 +1,194 @@
+using System.Text.RegularExpressions;
+
+class Program
+{
+    static string GenerateDescriptor(string code, LexicalAnalyzer analyzer)
+    {
+        string descriptorText = "";
+        string[] lines = code.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        int lineIndex = 0;
+        string pattern = @"([\s;:,.()\[\]<>+\-*/=])";
+        foreach (var line in lines)
+        {
+            lineIndex++;
+            string res = line.TrimStart();
+            string[] tokens = Regex.Split(res, pattern);
+
+            foreach (var token in tokens)
+            {
+                string descriptor = "";
+
+                if (analyzer.Keywords.Contains(token))
+                {
+                    descriptor = "(K1" + "," + (analyzer.Keywords.IndexOf(token) + 1) + ")";
+                }
+                else if (analyzer.TransitionOperators.Contains(token))
+                {
+                    descriptor = "(K5" + "," + (analyzer.TransitionOperators.IndexOf(token) + 1) + ")";
+                }
+                else if (analyzer.Identifiers.Contains(token))
+                {
+                    descriptor = "(K3" + "," + (analyzer.Identifiers.IndexOf(token) + 1) + ")";
+                }
+                else if (analyzer.Constants.Contains(token))
+                {
+                    descriptor = "(K4" + "," + (analyzer.Constants.IndexOf(token) + 1) + ")";
+                }
+                else if (analyzer.Delimiters.Contains(token))
+                {
+                    descriptor = "(K2" + "," + (analyzer.Delimiters.IndexOf(token) + 1) + ")";
+                }
+                
+
+                descriptorText += descriptor;
+            }
+
+            descriptorText += "\n";
+        }
+
+        return descriptorText;
+    }
+
+    
+
+    static void Main(string[] args)
+    {
+        string code = @"
+    программа ПрограммаКвадратЭлементовМассива;
+    переменные
+        х: целое;
+        у: целое;
+    начать
+        х = 5;
+        если (х > 0) тогда
+            у = х * корень(x); 
+        иначе
+            у = -x * -x; 
+        конец если;
+    конец.";
+
+
+        LexicalAnalyzer analyzer = new LexicalAnalyzer();
+        analyzer.Analyze(code);
+
+        Console.WriteLine("Ключевые слова:");
+        foreach (var keyword in analyzer.Keywords)
+        {
+            Console.WriteLine(keyword);
+        }
+
+        Console.WriteLine("\nРазделители:");
+        foreach (var delimiter in analyzer.Delimiters)
+        {
+            Console.WriteLine(delimiter);
+        }
+
+        Console.WriteLine("\nИдентификаторы:");
+        foreach (var identifier in analyzer.Identifiers)
+        {
+            Console.WriteLine(identifier);
+        }
+
+        Console.WriteLine("\nМетоды трансляции");
+        foreach(var transitionoperators in analyzer.TransitionOperators)
+        {
+            Console.WriteLine(transitionoperators);
+        }
+        Console.WriteLine("\nКонстанты:");
+        foreach (var constant in analyzer.Constants)
+        {
+            Console.WriteLine(constant);
+        }
+
+        Console.WriteLine("\nДескриптор:");
+        Console.WriteLine(GenerateDescriptor(code, analyzer));
+    }
+}
+
+
+class LexicalAnalyzer
+{
+    public List<string> Keywords { get; private set; }
+    public List<string> Delimiters { get; private set; }
+    public List<string> Identifiers { get; private set; }
+    public List<string> Constants { get; private set; }
+    public List<string> TransitionOperators { get; private set; }
+
+    public LexicalAnalyzer()
+    {
+        Keywords = new List<string>();
+        Delimiters = new List<string>();
+        Identifiers = new List<string>();
+        Constants = new List<string>();
+        TransitionOperators = new List<string>();
+    }
+
+    public void Analyze(string code)
+    {
+        string[] keywords = { "программа", "переменные", "начать", "конец", "рядом","ин", "для", "по", "делать", "корень", "лог", "натуральный_логарифм", "около", "целое", "вещественное", "константа", "массив" };
+        string[] delimiters = { ";", ":", ",", ".", "(", ")", "[", "]", "<", ">", "+", "-", "*", "/", "=" };
+        string[] transitionOperators = { "если", "тогда", "иначе", "переключить", "случай", "по умолчанию" };
+        string[] tokens = code.Split(new char[] { ';', ':', ',', '.', '(', ')', '[', ']', '<', '>', '+', '-', '*', '/', '=', ' ', '\n', '\t', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        string pattern = @"[^;:,.()\[\]<>+\-*/=]+";
+        string result = Regex.Replace(code, pattern, " ");
+        string[] razd = result.Split(' ');
+        foreach (string token in tokens)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                continue;
+            }
+            if (keywords.Contains(token))
+            {
+                AddToTable(token, Keywords);
+            }
+            else if (transitionOperators.Contains(token))
+            {
+                AddToTable(token, TransitionOperators);
+            }
+            else if (IsIdentifier(token))
+            {
+                AddToTable(token, Identifiers);
+            }
+            else if (IsConstant(token))
+            {
+                AddToTable(token, Constants);
+            }
+            
+        }
+        foreach (string token in razd)
+        {
+            if (token.Length > 1)
+            {
+                string sub = token.Substring(0, 1);
+                if (delimiters.Contains(sub))
+                {
+                    AddToTable(sub, Delimiters);
+                }
+
+            }
+            if (delimiters.Contains(token))
+            {
+                AddToTable(token, Delimiters);
+            }
+        }
+    }
+
+    private void AddToTable(string token, List<string> table)
+    {
+        if (!table.Contains(token))
+        {
+            table.Add(token);
+        }
+    }
+
+    private bool IsIdentifier(string token)
+    {
+        return Regex.IsMatch(token, @"^[а-яА-ЯёЁ_]\w*$");
+    }
+
+    private bool IsConstant(string token)
+    {
+        return Regex.IsMatch(token, @"^\d+([.,]\d+)?$");
+    }
+}
